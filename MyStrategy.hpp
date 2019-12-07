@@ -11,6 +11,8 @@ class MyStrategy {
 public:
   MyStrategy();
   UnitAction getAction(const Unit &unit, const Game &game, Debug &debug);
+  void SetPotentialField(const Game &game);
+  std::vector<std::vector<double>> PotentialField;
 };
 
 #endif
