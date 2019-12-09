@@ -26,15 +26,17 @@ bool intersect (Vec2Double a, Vec2Double b, Vec2Double c, Vec2Double d) {
 
 bool isObstacleForAim(const Vec2Double unitPos, const Vec2Double aim, const Game &game)
 {
-    if(distanceSqr(unitPos, aim)<2) return false;
+    if(distanceSqr(unitPos, aim)<5) {
+        return false;
+    }
     int sqareStartX =  fmin(floor(unitPos.x), floor(aim.x));
     int sqareFinishX = fmax(ceil(unitPos.x),ceil(aim.x));
     int sqareStartY = fmin(floor(unitPos.y),floor(aim.y));
-    int sqareFinishY = fmax(ceil(unitPos.y),int(aim.y));
+    int sqareFinishY = fmax(ceil(unitPos.y),ceil(aim.y));
 
-    for(int i = sqareStartX; i<sqareFinishX;i++)
+    for(int i = sqareStartX; i<=sqareFinishX;i++)
     {
-        for(int j = sqareStartY; j<sqareFinishY;j++)
+        for(int j = sqareStartY; j<=sqareFinishY;j++)
         {
             if(game.level.tiles[size_t(i)][size_t(j)] != Tile::EMPTY)
             {
@@ -81,7 +83,7 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
     }
     Vec2Double targetPos = unit.position;
 
-
+    const Unit *nearestHealthPack = nullptr;
 
     if (unit.weapon == nullptr && nearestWeapon != nullptr) {
         targetPos = nearestWeapon->position;
@@ -100,12 +102,14 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
     bool jump = targetPos.y > unit.position.y;
     if (targetPos.x > unit.position.x &&
         game.level.tiles[size_t(unit.position.x + 1)][size_t(unit.position.y)] ==
-        Tile::WALL) {
+        Tile::WALL|| (fabs(nearestEnemy->position.x - unit.position.x + 1)<0.5 &&  fabs(nearestEnemy->position.y - unit.position.y)<0.5)
+            ) {
         jump = true;
     }
     if (targetPos.x < unit.position.x &&
         game.level.tiles[size_t(unit.position.x - 1)][size_t(unit.position.y)] ==
-        Tile::WALL) {
+        Tile::WALL|| (abs(nearestEnemy->position.x - unit.position.x - 1)<0.5 &&  abs(nearestEnemy->position.y - unit.position.y)<0.5)
+            ) {
         jump = true;
     }
 
@@ -143,6 +147,7 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
     action.aim = aim;
     action.shoot = !isObstacleDetected || (distanceSqr(unit.position, nearestEnemy->position) < 3);
     action.swapWeapon = swapWeapon;
+    action.reload = false;
     action.plantMine = false;
 
     debug.draw(CustomData::Line(Vec2Float(unit.position.x ,unit.position.y),
