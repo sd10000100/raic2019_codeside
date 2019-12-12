@@ -39,6 +39,31 @@ bool intersect (Vec2Double a, Vec2Double b, Vec2Double c, Vec2Double d) {
            && area(c,d,a) * area(c,d,b) <= 0;
 }
 
+Vec2Double TurnAndResize(Vec2Double from, Vec2Double to, double lenght, double angle)
+{
+
+
+    double l = sqrt(
+            (to.x - from.x) * (to.x - from.x) +
+            (to.y - from.y) * (to.y - from.y));
+
+    double Vx = to.x - from.x;
+    double Vy = to.y - from.y;
+    double x = Vx * cos(angle) - Vy * sin(angle);
+    double y = Vy * cos(angle) + Vx * sin(angle);
+    to.x = from.x + x;
+    to.y = from.y + y;
+
+
+    Vx = to.x - from.x;
+    Vy = to.y - from.y;
+    to.x = from.x + Vx * (lenght/l);
+    to.y = from.y + Vy * (lenght/l);
+
+
+    return to;
+}
+
 bool isObstacleForAim(const Vec2Double unitPos, const Vec2Double aim, const Game &game)
 {
     if(distanceSqr(unitPos, aim)<5) {
@@ -53,7 +78,7 @@ bool isObstacleForAim(const Vec2Double unitPos, const Vec2Double aim, const Game
     {
         for(int j = sqareStartY; j<=sqareFinishY;j++)
         {
-            if(game.level.tiles[size_t(i)][size_t(j)] != Tile::EMPTY)
+            if(game.level.tiles[size_t(i)][size_t(j)] ==Tile::WALL)
             {
                 if(intersect(unitPos,aim,Vec2Double(size_t(i), size_t(j)), Vec2Double(size_t(i), size_t(j)+1))){
                     return true;
@@ -71,6 +96,42 @@ bool isObstacleForAim(const Vec2Double unitPos, const Vec2Double aim, const Game
         }
     }
     return false;
+}
+
+double distToObstacle(const Vec2Double unitPos, const Vec2Double aim, const Game &game)
+{
+    if(distanceSqr(unitPos, aim)<5) {
+        return false;
+    }
+    double min = 10000;
+    int sqareStartX =  fmin(floor(unitPos.x), floor(aim.x));
+    int sqareFinishX = fmax(ceil(unitPos.x),ceil(aim.x));
+    int sqareStartY = fmin(floor(unitPos.y),floor(aim.y));
+    int sqareFinishY = fmax(ceil(unitPos.y),ceil(aim.y));
+
+    for(int i = sqareStartX; i<=sqareFinishX;i++)
+    {
+        for(int j = sqareStartY; j<=sqareFinishY;j++)
+        {
+            if(game.level.tiles[size_t(i)][size_t(j)] != Tile::EMPTY)
+            {
+                double dist = distanceSqr(unitPos, Vec2Double(size_t(i), size_t(j)));
+                if(min<dist &&  intersect(unitPos,aim,Vec2Double(size_t(i), size_t(j)), Vec2Double(size_t(i), size_t(j)+1))){
+                    min = dist;
+                }
+                else if (min<dist &&  intersect(unitPos,aim,Vec2Double(size_t(i), size_t(j)), Vec2Double(size_t(i)+1, size_t(j)))){
+                    min = dist;
+                }
+                else  if (min<dist &&  intersect(unitPos,aim,Vec2Double(size_t(i)+1, size_t(j)), Vec2Double(size_t(i)+1, size_t(j)+1))){
+                    min = dist;
+                }
+                else  if (min<dist &&  intersect(unitPos,aim,Vec2Double(size_t(i), size_t(j)+1), Vec2Double(size_t(i)+1, size_t(j)+1))){
+                    min = dist;
+                }
+            }
+        }
+    }
+    return sqrt(min);
 }
 
 int signedMax(int a, int b)
@@ -180,6 +241,8 @@ double getSumOfVectorOnInfluenseMap(Vec2Double fromV, Vec2Double toV, double** m
             )) {
                 sum += matr[i][j];
             }
+            else if(!isCorrectCoordinate(i, j, sizeX, sizeY))
+            {sum +=80;}
         }
     }
     return sum;
@@ -229,8 +292,8 @@ Vec2Double GetMinPotentialByRadius(int radius, double** matr, int sizeX, int siz
         }
     }
 //    std::cerr<<'\n';
-//    for (int tempY = y+radius; tempY > y-radius-1; tempY--) {
-//        for (int tempX = x-radius+1; tempX < x+radius; tempX++) {
+//    for (int tempY = y+radius-1; tempY >= y-radius; tempY--) {
+//        for (int tempX = x-radius+1; tempX <= x+radius; tempX++) {
 //
 //            if(isCorrectCoordinate(tempX,tempY, sizeX, sizeY ))
 //            {
@@ -249,171 +312,6 @@ Vec2Double GetMinPotentialByRadius(int radius, double** matr, int sizeX, int siz
     return minPos;
 
 }
-//
-//
-//Vec2Double GetMinPotentialByRadiusDirection(int radius, double** matr, int sizeX, int sizeY, Vec2Double source) {
-//    Vec2Double maxPos = source;
-//    double minPotential = 10000;
-//    int x = int(abs(floor(source.x)));
-//    int y = int(abs(floor(source.y)));
-//
-//    for(int i = -radius+1; i<radius;i++)
-//    {
-//
-//        for(int j = 0; j<radius*2-1;j++)
-//        {
-//            if(game.level.tiles[size_t(i)][size_t(j)] != Tile::EMPTY)
-//            {
-//                if(intersect(unitPos,aim,Vec2Double(size_t(i), size_t(j)), Vec2Double(size_t(i), size_t(j)+1))
-//                   ||
-//                   intersect(unitPos,aim,Vec2Double(size_t(i), size_t(j)), Vec2Double(size_t(i)+1, size_t(j)))
-//                   ||
-//                   intersect(unitPos,aim,Vec2Double(size_t(i)+1, size_t(j)), Vec2Double(size_t(i)+1, size_t(j)+1))
-//                   ||
-//                   intersect(unitPos,aim,Vec2Double(size_t(i), size_t(j)+1), Vec2Double(size_t(i)+1, size_t(j)+1))
-//                        ){
-//                    PutPotential(damage, 1, matr, sizeX, sizeY,Vec2Double(size_t(i)+0.5, size_t(j)+0.5));
-//                }
-//
-//            }
-//        }
-//    }
-//
-//}
-
-Vec2Double GetMinPotentialByRadiusDirection2(int radius, double** matr, int sizeX, int sizeY, Vec2Double source) {
-
-    //double min = 10000;
-    Vec2Double maxPos = source;
-    int x = int(abs(floor(source.x)));
-    int y = int(abs(floor(source.y)));
-
-    double ToLeft = 0;
-    int stepsToLeft = 0;
-
-    double ToRight = 0;
-    int stepsToRight = 0;
-
-    double ToUp = 0;
-    int stepsToUp = 0;
-
-    double ToDown = 0;
-    int stepsToDown = 0;
-
-//------------------------------
-
-    double ToLeftUp = 0;
-    int stepsToLeftUp = 0;
-
-    double ToRightUp = 0;
-    int stepsToRightUp = 0;
-
-    double ToLeftDown = 0;
-    int stepsToLeftDown = 0;
-
-    double ToRightDown = 0;
-    int stepsToRightDown = 0;
-
-    Vec2Double PosToLeft = source;
-    Vec2Double PosToRight = source;
-    Vec2Double PosToUp = source;
-    Vec2Double PosToDown = source;
-
-    Vec2Double PosToLeftUp = source;
-    Vec2Double PosToRightUp = source;
-    Vec2Double PosToLeftDown = source;
-    Vec2Double PosToRightDown = source;
-
-    for (int l = 1; l < radius; l++) {
-        if(isCorrectCoordinate(x,y-l, sizeX,sizeY))//  && matr[x][y-l]!=80
-        {
-            ToLeft+=matr[x][y-l];
-            stepsToLeft ++;
-            PosToLeft.x = x;
-            PosToLeft.y = y-l;
-        }
-        if(isCorrectCoordinate(x,y+l, sizeX,sizeY))//  && matr[x][y+l]!=80
-        {
-            ToRight+=matr[x][y+l];
-            stepsToRight ++;
-            PosToRight.x = x;
-            PosToRight.y = y+l;
-        }
-
-        if(isCorrectCoordinate(x+l,y, sizeX,sizeY))//  && matr[x+l][y]!=80
-        {
-            ToUp+=matr[x+l][y];
-            stepsToUp ++;
-            PosToUp.x = x+l;
-            PosToUp.y = y;
-        }
-
-        if(isCorrectCoordinate(x-l,y, sizeX,sizeY))//  && matr[x+l][y]!=80
-        {
-            ToDown+=matr[x-l][y];
-            stepsToDown ++;
-            PosToDown.x = x-l;
-            PosToDown.y = y;
-        }
-// ------------------------------
-        if(isCorrectCoordinate(x-l,y+l, sizeX,sizeY))//  && matr[x+l][y]!=80
-        {
-            ToLeftUp+=matr[x-l][y+l];
-            stepsToLeftUp ++;
-            PosToLeftUp.x = x-l;
-            PosToLeftUp.y = y+l;
-        }
-
-        if(isCorrectCoordinate(x+l,y+l, sizeX,sizeY))//  && matr[x+l][y]!=80
-        {
-            ToRightUp+=matr[x+l][y+l];
-            stepsToRightUp ++;
-            PosToRightUp.x = x+l;
-            PosToRightUp.y = y+l;
-        }
-
-        if(isCorrectCoordinate(x-l,y-l, sizeX,sizeY))//  && matr[x+l][y]!=80
-        {
-            ToLeftDown+=matr[x-l][y-l];
-            stepsToLeftDown ++;
-            PosToLeftDown.x = x-l;
-            PosToLeftDown.y = y-l;
-        }
-
-        if(isCorrectCoordinate(x+l,y-l, sizeX,sizeY))//  && matr[x+l][y]!=80
-        {
-            ToRightDown+=matr[x+l][y-l];
-            stepsToRightDown ++;
-            PosToRightDown.x = x+l;
-            PosToRightDown.y = y-l;
-        }
-    }
-
-    int min = fmin(fmin(fmin(ToLeft,ToRight), fmin(ToUp,ToDown)), fmin(fmin(ToLeftUp,ToRightUp), fmin(ToLeftDown,ToRightDown)));
-
-    if(min==ToLeft)
-        return PosToLeft;
-    else if(min==ToRight)
-        return PosToRight;
-    else if(min==ToUp)
-        return PosToUp;
-    else if(min==ToDown)
-        return PosToDown;
-
-    else if(min==ToLeftUp)
-        return PosToLeftUp;
-    else if(min==ToRightUp)
-        return PosToRightUp;
-    else if(min==ToLeftDown)
-        return PosToLeftDown;
-    else if(min==ToRightDown)
-        return PosToRightDown;
-
-    return maxPos;
-
-}
-
-
 
 double **array_generator(unsigned int dim1, unsigned int dim2) {
     double **ptrary = new double * [dim1];
@@ -429,6 +327,7 @@ void array_destroyer(double **ary, unsigned int dim1) {
     }
     delete [] ary;
 }
+
 
 UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
                                  Debug &debug) {
@@ -477,14 +376,54 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
 //        PotentialFields.push_back(std::vector<double>(height, 0));
 //    }
     //std::cerr<<game.currentTick<<'\n';
-    PutPotential(80, 20, a, width, height, nearestEnemy->position);
+    PutPotential(60, 10, a, width, height, nearestEnemy->position);
     PutPotential(isRocketInMyHand?5:3, 1, a, width, height, unit.position);
     for(auto bullet : game.bullets)
     {
-        int step = bullet.damage/2;
-        if(bullet.explosionParams.get()!=nullptr && bullet.explosionParams.get()->radius!=0)
-            step = bullet.damage/((bullet.explosionParams.get()->radius)*2);
-        PutPotential(bullet.damage, step, a, width,height, bullet.position);
+        if(bullet.unitId!=unit.id || isRocketInMyHand) {
+            int damage = 80;
+            int step = damage / 3;
+//            if (bullet.explosionParams.get() != nullptr && bullet.explosionParams.get()->radius != 0)
+//                step = damage / ((bullet.explosionParams.get()->radius) * 2);
+            PutPotential(damage, step, a, width, height, bullet.position);
+
+            Vec2Double negatPotentialVecP1 = bullet.position;
+            Vec2Double newPosForBullet2 = bullet.position;
+            newPosForBullet2.x+=bullet.velocity.x/30;
+            newPosForBullet2.y+=bullet.velocity.y/30;
+            Vec2Double negatPotentialVecP2 = unit.position;
+            double coeff =negatPotentialVecP1.x< newPosForBullet2.x;
+            negatPotentialVecP2  = TurnAndResize(bullet.position, newPosForBullet2, 3+unit.size.y*(coeff? 2:1), 3.14/2);
+            Vec2Double negatPotentialVecP3  = TurnAndResize(bullet.position, newPosForBullet2, 3+unit.size.y*(coeff? 1:2), -3.14/2);
+
+            PutPotential(-damage, step, a, width, height, negatPotentialVecP2);
+            PutPotential(-damage, step, a, width, height, negatPotentialVecP3);
+
+            Vec2Double newPosForBullet = bullet.position;
+            for(int sptps = 0; sptps<100;sptps++)
+            {
+
+
+                damage=damage*(sptps/10);
+                newPosForBullet.x+=bullet.velocity.x/60;
+                newPosForBullet.y+=bullet.velocity.y/60;
+                PutPotential(damage, step, a, width, height, newPosForBullet);
+
+                Vec2Double p1 = newPosForBullet;
+                Vec2Double p2 = p1;
+                p2.x+=p1.x/30;
+                p2.y+=p1.y/30;
+
+                Vec2Double newP2  = TurnAndResize(p1, p2, 3+unit.size.y*(coeff? 2:1), 3.14/2);
+                Vec2Double newP3  = TurnAndResize(p1, p2, 3+unit.size.y*(coeff? 1:2), -3.14/2);
+
+                PutPotential(-damage/2, step, a, width, height, newP2);
+                PutPotential(-damage/2, step, a, width, height, newP3);
+
+
+            }
+
+        }
     }
     bool isHealthPackFounded = false;
     for (const LootBox &lootBox : game.lootBoxes) {
@@ -504,11 +443,15 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
         {
             if(game.level.tiles[size_t(i)][size_t(j)] == Tile::WALL)
             {
-                if(isRocketInMyHand)
-                    PutPotential(80, 40, a, width,height, Vec2Double(i,j));
-                else
+//                if(isRocketInMyHand)
+//                    PutPotential(80, 60, a, width,height, Vec2Double(i,j));
+//                else
                     PutPotential(80, 80, a, width,height, Vec2Double(i,j));
                 isWallDetected = false;
+            }
+            if(game.level.tiles[size_t(i)][size_t(j)] == Tile::LADDER)
+            {
+                PutPotential(10, 3, a, width,height, Vec2Double(i,j));
             }
             if(isWallDetected)
             {
@@ -516,24 +459,24 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
             }
         }
     }
-    if(game.bullets.size()>0) {
-        for (int j = height; j >= 0; j--) {
-            for (int i = 0; i < width; i++) {
-                //std::cerr << a[i][j] << ' ';
-                if (a[i][j] == 0)
-                    std::cerr << "  ";
-                else{
-                    std::string sss = "";
-                    if(a[i][j]<0)
-                        sss = std::to_string(int(a[i][j]));
-                    else sss =a[i][j]<10? " "+std::to_string(int(a[i][j])): std::to_string(int(a[i][j]));
-                    std::cerr << sss;
-                }
-
-            }
-            std::cerr << '\n';
-        }
-    }
+//    if(game.bullets.size()>0) {
+//        for (int j = height; j >= 0; j--) {
+//            for (int i = 0; i < width; i++) {
+//                //std::cerr << a[i][j] << ' ';
+//                if (a[i][j] == 0)
+//                    std::cerr << "  ";
+//                else{
+//                    std::string sss = "";
+//                    if(a[i][j]<0)
+//                        sss = std::to_string(int(a[i][j]));
+//                    else sss =a[i][j]<10? " "+std::to_string(int(a[i][j])): std::to_string(int(a[i][j]));
+//                    std::cerr << sss;
+//                }
+//
+//            }
+//            std::cerr << '\n';
+//        }
+//    }
    // targetPos =  GetMinPotentialByRadius(int radius, const double** matr, int sizeX, int sizeY, Vec2Double source)
 
     Vec2Double targetPos = unit.position;
@@ -551,33 +494,53 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
 
 
     bool isObstacleDetected =  isObstacleForAim(unit.position, Vec2Double(nearestEnemy->position.x, nearestEnemy->position.y), game);
-    if (unit.weapon.get() != nullptr && !isObstacleDetected)
-    {
-      // PutRayPotential(unit.position, aim, game, unit.weapon.get()->params.bullet.damage, a, width,height);
-    }
 
 
+    bool isShoot= !isObstacleDetected || (!isRocketInMyHand) || sqrt(distanceSqr(unit.position, nearestEnemy->position)) < 4;
 
-    bool isShoot= !isObstacleDetected || (distanceSqr(unit.position, nearestEnemy->position) < 9);
+//    if(!isShoot)
+//    {
+//        std::cerr << "dist to enemy : " << sqrt(distanceSqr(unit.position, nearestEnemy->position))<<'\n';
+//    }
     if (unit.weapon == nullptr && nearestWeapon != nullptr) {
         targetPos = nearestWeapon->position;
     } else if (nearestEnemy != nullptr) {
         targetPos = nearestEnemy->position;
+        if(isObstacleDetected) {
+            if (sqrt(distanceSqr(unit.position, nearestEnemy->position)) > 10) {
+                double l = sqrt(
+                        (nearestEnemy->position.x - unit.position.x) * (nearestEnemy->position.x - unit.position.x) +
+                        (nearestEnemy->position.y - unit.position.y) * (nearestEnemy->position.y - unit.position.y));
+
+                targetPos = nearestEnemy->position;
+                double Vx = targetPos.x - unit.position.x;
+                double Vy = targetPos.y - unit.position.y;
+                targetPos.x = unit.position.x + Vx * ((l - 10) / l);
+                targetPos.y = unit.position.y + Vy * ((l - 10) / l);
+            } else {
+                targetPos = nearestEnemy->position;
+                double angle = 3.14;
+                double Vx = targetPos.x - unit.position.x;
+                double Vy = targetPos.y - unit.position.y;
+                double x = Vx * cos(angle) - Vy * sin(angle);
+                double y = Vy * cos(angle) + Vx * sin(angle);
+                targetPos.x = unit.position.x + x;
+                targetPos.y = unit.position.y + y;
+
+            }
+        }
         if(!isObstacleDetected)
-        //{
-            targetPos =   GetMinPotentialByRadius(5, a, width,height, unit.position);
-        //   targetPos =  GetMinPotentialByRadiusDirection(7,  a, width,height, unit.position);
-        //}
-            //targetPos =  GetMinPotentialByRadius(5,  a, width,height, unit.position);
+            targetPos =   GetMinPotentialByRadius(3, a, width,height, unit.position);
     }
     array_destroyer(a, width+1);
 
     Vec2Double nearestHealthPack = Vec2Double(0, 0);
-    if(unit.weapon != nullptr || unit.health<game.properties.unitMaxHealth){
+    if(unit.weapon != nullptr || unit.health<game.properties.unitMaxHealth ){
         for (const LootBox &lootBox : game.lootBoxes) {
             if (std::dynamic_pointer_cast<Item::Weapon>(lootBox.item)) {
                 if (distanceSqr(unit.position, lootBox.position) < 5) {
-                    if(game.properties.weaponParams.at(unit.weapon.get()->typ).bullet.damage< game.properties.weaponParams.at(std::dynamic_pointer_cast<Item::Weapon>(lootBox.item)->weaponType).bullet.damage){
+                    if(game.properties.weaponParams.at(unit.weapon.get()->typ).bullet.damage< game.properties.weaponParams.at(std::dynamic_pointer_cast<Item::Weapon>(lootBox.item)->weaponType).bullet.damage
+                    && (WeaponType::ROCKET_LAUNCHER!=std::dynamic_pointer_cast<Item::Weapon>(lootBox.item)->weaponType)){
                         targetPos = lootBox.position;
                         swapWeapon = true;
                     }
@@ -585,8 +548,7 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
 
             }
             if (unit.health<game.properties.unitMaxHealth &&  std::dynamic_pointer_cast<Item::HealthPack>(lootBox.item)) {
-                if (distanceSqr(unit.position, lootBox.position) < 40) {
-                //if ((nearestHealthPack.x==0 && nearestHealthPack.y==0) || distanceSqr(unit.position, lootBox.position)< distanceSqr(unit.position, nearestHealthPack)) {
+                if ((nearestHealthPack.x==0 && nearestHealthPack.y==0) || distanceSqr(unit.position, lootBox.position)< distanceSqr(unit.position, nearestHealthPack)) {
                     nearestHealthPack = lootBox.position;
                     targetPos = lootBox.position;
                 }
@@ -597,14 +559,14 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
 
 
     bool jump = targetPos.y > unit.position.y;
-    if (targetPos.x > unit.position.x &&
+    if (targetPos.x > unit.position.x && (
         game.level.tiles[size_t(unit.position.x + 1)][size_t(unit.position.y)] ==
-        Tile::WALL) {
+        Tile::WALL || (abs(nearestEnemy->position.x - unit.position.x + 1)<3 &&  abs(nearestEnemy->position.y - unit.position.y)<3)
+                                         )) {
         jump = true;
     }
-    if (targetPos.x < unit.position.x &&
-        game.level.tiles[size_t(unit.position.x - 1)][size_t(unit.position.y)] ==
-        Tile::WALL) {
+    if (targetPos.x < unit.position.x && ((game.level.tiles[size_t(unit.position.x - 1)][size_t(unit.position.y)] ==
+        Tile::WALL) || (fabs(nearestEnemy->position.x - unit.position.x - 1)<3 &&  fabs(nearestEnemy->position.y - unit.position.y)<3))) {
         jump = true;
     }
 
@@ -616,7 +578,7 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
     //if(unit.weapon.get() == nullptr || isObstacleDetected || unit.health<game.properties.unitMaxHealth)
         action.velocity = (targetPos.x - unit.position.x)*game.properties.unitMaxHorizontalSpeed;
    // else
-    //    action.velocity = 0;
+    // action.velocity = 0;
 
 
 
@@ -635,7 +597,7 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
     debug.draw(CustomData::Line(Vec2Float(unit.position.x ,unit.position.y),
                                 Vec2Float(targetPos.x, targetPos.y + (game.properties.unitSize.y/2)),
                                 0.1,ColorFloat(100,0,0,50)));
-    std::string tsxt = action.shoot? "true":"false";
+    std::string tsxt = isShoot? "true":"false";
     debug.draw(CustomData::Log(
             std::string("isShoot: ")+tsxt));
     //array_destroyer(a, width+1);
