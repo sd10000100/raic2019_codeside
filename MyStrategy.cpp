@@ -341,6 +341,7 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
 
     bool isRocketInMyHand = unit.weapon.get()!=nullptr && unit.weapon.get()->typ==WeaponType::ROCKET_LAUNCHER;
 
+
     for (const Unit &other : game.units) {
         if (other.playerId != unit.playerId) {
             if (nearestEnemy == nullptr ||
@@ -372,10 +373,17 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
             a[i][j] = 0;
         }
     }
+
+
+    for (const Mine &mine : game.mines) {
+        PutPotential(60, 10, a, width, height, nearestEnemy->position);
+    }
+
 //    for (int i=0;i<width;i++) {
 //        PotentialFields.push_back(std::vector<double>(height, 0));
 //    }
     //std::cerr<<game.currentTick<<'\n';
+
     PutPotential(60, 10, a, width, height, nearestEnemy->position);
     PutPotential(isRocketInMyHand?5:3, 1, a, width, height, unit.position);
     for(auto bullet : game.bullets)
@@ -496,8 +504,18 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
     bool isObstacleDetected =  isObstacleForAim(unit.position, Vec2Double(nearestEnemy->position.x, nearestEnemy->position.y), game);
 
 
-    bool isShoot= !isObstacleDetected || (!isRocketInMyHand) || sqrt(distanceSqr(unit.position, nearestEnemy->position)) < 4;
+    bool isMyUnitOnAimLine = false;
 
+    for (const Unit &other : game.units) {
+        if (other.playerId == unit.playerId && unit.id!=other.id) { //if союзник
+            if (intersect(unit.position, aim, Vec2Double(other.position.x, other.position.y-other.size.y/2), Vec2Double(other.position.x, other.position.y-other.size.y*1.5)))
+                    isMyUnitOnAimLine = true;
+            }
+    }
+
+
+    bool isShoot= !isMyUnitOnAimLine;
+    isShoot = isShoot && !isObstacleDetected || (!isRocketInMyHand) || sqrt(distanceSqr(unit.position, nearestEnemy->position)) < 4;
 //    if(!isShoot)
 //    {
 //        std::cerr << "dist to enemy : " << sqrt(distanceSqr(unit.position, nearestEnemy->position))<<'\n';
