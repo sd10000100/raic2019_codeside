@@ -39,6 +39,32 @@ bool intersect (Vec2Double a, Vec2Double b, Vec2Double c, Vec2Double d) {
            && area(c,d,a) * area(c,d,b) <= 0;
 }
 
+struct Edge{
+    Edge(Vec2Double p1, Vec2Double p2):start(p1), finish(p2){}
+    Vec2Double start;
+    Vec2Double finish;
+};
+
+
+bool isPointInTriangle(Vec2Double p, Vec2Double p1, Vec2Double p2,Vec2Double p3){
+    std::vector<Edge> stackEnges = {};
+    int countIntersect = 0;
+    stackEnges.push_back(Edge(p1,p2));
+    stackEnges.push_back(Edge(p2,p3));
+    stackEnges.push_back(Edge(p3,p1));
+
+    for(Edge item : stackEnges)
+    {
+        if(intersect (p, Vec2Double(10000,1), item.start, item.finish))
+            countIntersect++;
+    }
+    if(countIntersect%2==0)
+        return false;
+    else {
+        return true;
+    }
+}
+
 Vec2Double TurnAndResize(Vec2Double from, Vec2Double to, double lenght, double angle)
 {
 
@@ -172,6 +198,45 @@ void PutPotential(double power, double step, double** matr, int sizeX, int sizeY
                 matr[temp][tempArrMinY]=signedMax(matr[temp][tempArrMinY],getSign(power)*(abs(power)-l));
             if(tempArrMaxY>=0 && tempArrMaxY<sizeY  && temp>=0 && temp<sizeX)
                 matr[temp][tempArrMaxY]=signedMax(matr[temp][tempArrMaxY],getSign(power)*(abs(power)-l));
+        }
+    }
+}
+
+double putp(double oldV, double newV)
+{
+    if(oldV==80)
+        return 80;
+    else if(oldV == 0)
+        return newV;
+    else
+        return (oldV+newV)/2;
+
+}
+
+void PutAvgPotential(double power, double step, double** matr, int sizeX, int sizeY, Vec2Double p)
+{
+    int s = 0;
+    int x = int(abs(floor(p.x)));
+    int y = int(abs(floor(p.y)));
+    for(int l = 0;l<fabs(power);l=l+step, s++)
+    {
+        for(int temp = y-s;temp<=s+y;temp++)
+        {
+            int tempArrMinX = int(floor(x-s));
+            int tempArrMaxX = int(floor(x+s));
+            if(tempArrMinX>=0 && tempArrMinX<sizeX && temp>=0 && temp<sizeY && matr[tempArrMinX][temp]<80)
+                matr[tempArrMinX][temp]=putp(matr[tempArrMinX][temp],getSign(power)*(abs(power)-l));
+            if(tempArrMaxX<sizeX && tempArrMaxX>=0 && temp>=0 && temp<sizeY && matr[tempArrMaxX][temp]<80)
+                matr[tempArrMaxX][temp]=putp(matr[tempArrMaxX][temp],getSign(power)*(abs(power)-l));
+        }
+        for(int temp = x-s+1;temp<=s+x-1;temp++)
+        {
+            int tempArrMinY = int(floor(y-s));
+            int tempArrMaxY = int(floor(y+s));
+            if(tempArrMinY>=0 && tempArrMinY<sizeY && temp>=0 && temp<sizeX && matr[temp][tempArrMinY]<80)
+                matr[temp][tempArrMinY]=putp(matr[temp][tempArrMinY],getSign(power)*(abs(power)-l));
+            if(tempArrMaxY>=0 && tempArrMaxY<sizeY  && temp>=0 && temp<sizeX && matr[temp][tempArrMaxY]<80)
+                matr[temp][tempArrMaxY]=putp(matr[temp][tempArrMaxY],getSign(power)*(abs(power)-l));
         }
     }
 }
@@ -385,13 +450,22 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
 //    }
    // std::cerr<<game.currentTick<<'\n';
 
-    PutPotential(60, 10, a, width, height, nearestEnemy->position);
-    PutPotential(isRocketInMyHand?5:3, 1, a, width, height, unit.position);
+    for (const Unit &other : game.units) {
+        if (other.playerId != unit.playerId) {
+
+            PutPotential(30, 10, a, width, height, other.position);
+            PutAvgPotential(-30, 10, a, width, height, Vec2Double(other.position.x, other.position.y+4) );
+        }
+        else{
+            PutPotential(isRocketInMyHand?50:30, 10, a, width, height, other.position);
+        }
+    }
+
+
     for(auto bullet : game.bullets)
     {
-        if(bullet.unitId!=unit.id || isRocketInMyHand) {
-            int damage = 80;
-            int step = damage / 3;
+            int damage = 79;
+            int step = damage / 4;
 //            if (bullet.explosionParams.get() != nullptr && bullet.explosionParams.get()->radius != 0)
 //                step = damage / ((bullet.explosionParams.get()->radius) * 2);
             PutPotential(damage, step, a, width, height, bullet.position);
@@ -402,8 +476,8 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
             newPosForBullet2.y+=bullet.velocity.y/30;
             Vec2Double negatPotentialVecP2 = unit.position;
             double coeff =negatPotentialVecP1.x< newPosForBullet2.x;
-            negatPotentialVecP2  = TurnAndResize(bullet.position, newPosForBullet2, 3+unit.size.y*(coeff? 2:1), 3.14/2);
-            Vec2Double negatPotentialVecP3  = TurnAndResize(bullet.position, newPosForBullet2, 3+unit.size.y*(coeff? 1:2), -3.14/2);
+            negatPotentialVecP2  = TurnAndResize(bullet.position, newPosForBullet2, 4+unit.size.y*(coeff? 2:1), 3.14/2);
+            Vec2Double negatPotentialVecP3  = TurnAndResize(bullet.position, newPosForBullet2, 4+unit.size.y*(coeff? 1:2), -3.14/2);
 
             PutPotential(-damage, step, a, width, height, negatPotentialVecP2);
             PutPotential(-damage, step, a, width, height, negatPotentialVecP3);
@@ -431,8 +505,6 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
 
 
             }
-
-        }
     }
     bool isHealthPackFounded = false;
     for (const LootBox &lootBox : game.lootBoxes) {
@@ -441,7 +513,7 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
 
             if (unit.health < game.properties.unitMaxHealth) {
                 isHealthPackFounded = true;
-                PutPotential(-20, 2, a, width, height, lootBox.position);
+                PutAvgPotential(-20, 1, a, width, height, lootBox.position);
             }
         }
     }
@@ -460,7 +532,7 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
             }
             if(game.level.tiles[size_t(i)][size_t(j)] == Tile::LADDER)
             {
-                PutPotential(10, 3, a, width,height, Vec2Double(i,j));
+                PutPotential(10, 5, a, width,height, Vec2Double(i,j));
             }
             if(isWallDetected)
             {
@@ -468,24 +540,32 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
             }
         }
     }
-//    if(game.bullets.size()>0) {
+    //if(game.bullets.size()>0) {
 //        for (int j = height; j >= 0; j--) {
 //            for (int i = 0; i < width; i++) {
 //                //std::cerr << a[i][j] << ' ';
 //                if (a[i][j] == 0)
 //                    std::cerr << "  ";
+//                else if (a[i][j] == 80)
+//                    std::cerr << "__";
 //                else{
+//
+////                    else if(a[i][j]>0)
+////                        std::cerr << "+";
+////                    else
+//                       // sss =a[i][j]<10? " "+std::to_string(int(a[i][j])): std::to_string(int(a[i][j]));
 //                    std::string sss = "";
 //                    if(a[i][j]<0)
 //                        sss = std::to_string(int(a[i][j]));
-//                    else sss =a[i][j]<10? " "+std::to_string(int(a[i][j])): std::to_string(int(a[i][j]));
+//                    else sss =fabs(a[i][j]<10)? " "+std::to_string(int(a[i][j])): std::to_string(int(a[i][j]));
 //                    std::cerr << sss;
 //                }
 //
 //            }
 //            std::cerr << '\n';
 //        }
-//    }
+//    std::cerr <<"______________________________________"<< '\n';
+   // }
    // targetPos =  GetMinPotentialByRadius(int radius, const double** matr, int sizeX, int sizeY, Vec2Double source)
 
     Vec2Double targetPos = unit.position;
@@ -506,17 +586,44 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
 
 
     bool isMyUnitOnAimLine = false;
+    if(unit.weapon!= nullptr) {
+        for (const Unit &other : game.units) {
+            if (other.playerId == unit.playerId && unit.id != other.id) { //if союзник
+                Vec2Double pc = Vec2Double(nearestEnemy->position.x,
+                                           nearestEnemy->position.y);
+                Vec2Double p1 = pc;
+                Vec2Double p2 = pc;
+                double l = sqrt(distanceSqr(unit.position, pc));
 
-    for (const Unit &other : game.units) {
-        if (other.playerId == unit.playerId && unit.id!=other.id) { //if союзник
-            if (intersect(unit.position, aim, Vec2Double(other.position.x, other.position.y-other.size.y/2), Vec2Double(other.position.x, other.position.y-other.size.y*1.5)))
+                p1 = TurnAndResize(unit.position, pc, 30, unit.weapon.get()->spread);
+                p2 = TurnAndResize(unit.position, pc, 30, -unit.weapon.get()->spread);
+
+                debug.draw(CustomData::Line(Vec2Float(unit.position.x ,unit.position.y+other.size.y / 2),
+                                            Vec2Float(p1.x, p1.y),
+                                            0.1,ColorFloat(0,0,100,50)));
+                debug.draw(CustomData::Line(Vec2Float(unit.position.x ,unit.position.y+other.size.y / 2),
+                                            Vec2Float(p2.x, p2.y),
+                                            0.1,ColorFloat(0,0,100,50)));
+                if(isPointInTriangle(Vec2Double(other.position.x, other.position.y), unit.position, p1,p2)
+                ||
+                        isPointInTriangle(Vec2Double(other.position.x, other.position.y+other.size.y / 2), unit.position, p1,p2)
+            ||
+                                isPointInTriangle(Vec2Double(other.position.x, other.position.y+other.size.y), unit.position, p1,p2)
+                )
                     isMyUnitOnAimLine = true;
+//                if (intersect(unit.position, aim, Vec2Double(other.position.x, other.position.y - other.size.y / 2),
+//                              Vec2Double(other.position.x, other.position.y - other.size.y * 1.5)))
+//                    isMyUnitOnAimLine = true;
+//                else if (
+//
+//                        )
+//                    isMyUnitOnAimLine = true;
             }
+        }
     }
 
-
     bool isShoot= !isMyUnitOnAimLine;
-    isShoot = isShoot && !isObstacleDetected || (!isRocketInMyHand) || sqrt(distanceSqr(unit.position, nearestEnemy->position)) < 4;
+    isShoot = isShoot && (!isObstacleDetected || (!isRocketInMyHand && sqrt(distanceSqr(unit.position, nearestEnemy->position)) < 4));
 //    if(!isShoot)
 //    {
 //        std::cerr << "dist to enemy : " << sqrt(distanceSqr(unit.position, nearestEnemy->position))<<'\n';
@@ -537,6 +644,7 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
                 targetPos.x = unit.position.x + Vx * ((l - 10) / l);
                 targetPos.y = unit.position.y + Vy * ((l - 10) / l);
             } else {
+                //targetPos =   GetMinPotentialByRadius(3, a, width,height, unit.position);
                 targetPos = nearestEnemy->position;
                 double angle = 3.14;
                 double Vx = targetPos.x - unit.position.x;
@@ -616,9 +724,9 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
     debug.draw(CustomData::Line(Vec2Float(unit.position.x ,unit.position.y),
                                 Vec2Float(targetPos.x, targetPos.y + (game.properties.unitSize.y/2)),
                                 0.1,ColorFloat(100,0,0,50)));
-    std::string tsxt = isShoot? "true":"false";
+    std::string tsxt = isMyUnitOnAimLine? "true":"false";
     debug.draw(CustomData::Log(
-            std::string("isShoot: ")+tsxt));
+            std::string("isMyUnitOnAimLine: ")+tsxt));
     //array_destroyer(a, width+1);
 //    if(game.players.size()<=1) {
 //        for (auto const &player: game.players) {
