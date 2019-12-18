@@ -332,11 +332,12 @@ void array_destroyer(double **ary, unsigned int dim1) {
 UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
                                  Debug &debug) {
 
-    if(game.currentTick==141)
+    if(game.currentTick==315)
     {
         int stop = 1;
     }
     const Unit *nearestEnemy = nullptr;
+    const LootBox *nearestWeapon = nullptr;
     bool swapWeapon = false;
 
     bool isRocketInMyHand = unit.weapon.get()!=nullptr && unit.weapon.get()->typ==WeaponType::ROCKET_LAUNCHER;
@@ -351,7 +352,7 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
             }
         }
     }
-    const LootBox *nearestWeapon = nullptr;
+
     for (const LootBox &lootBox : game.lootBoxes) {
         if (std::dynamic_pointer_cast<Item::Weapon>(lootBox.item)) {
             if (nearestWeapon == nullptr ||
@@ -362,7 +363,6 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
         }
     }
 
-    const Unit *nearestHealthPack = nullptr;
 
     //SetPotentialField(game);
     int width = game.level.tiles.size();
@@ -383,7 +383,7 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
 //    for (int i=0;i<width;i++) {
 //        PotentialFields.push_back(std::vector<double>(height, 0));
 //    }
-    //std::cerr<<game.currentTick<<'\n';
+   // std::cerr<<game.currentTick<<'\n';
 
     PutPotential(60, 10, a, width, height, nearestEnemy->position);
     PutPotential(isRocketInMyHand?5:3, 1, a, width, height, unit.position);
@@ -556,8 +556,8 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
     Vec2Double nearestHealthPack = Vec2Double(0, 0);
     if(unit.weapon != nullptr || unit.health<game.properties.unitMaxHealth ){
         for (const LootBox &lootBox : game.lootBoxes) {
-            if (std::dynamic_pointer_cast<Item::Weapon>(lootBox.item)) {
-                if (distanceSqr(unit.position, lootBox.position) < 5) {
+            if (std::dynamic_pointer_cast<Item::Weapon>(lootBox.item) && unit.weapon != nullptr) {
+                if (distanceSqr(unit.position, lootBox.position) < 5 ) {
                     if(game.properties.weaponParams.at(unit.weapon.get()->typ).bullet.damage< game.properties.weaponParams.at(std::dynamic_pointer_cast<Item::Weapon>(lootBox.item)->weaponType).bullet.damage
                     && (WeaponType::ROCKET_LAUNCHER!=std::dynamic_pointer_cast<Item::Weapon>(lootBox.item)->weaponType)){
                         targetPos = lootBox.position;
@@ -607,7 +607,6 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
     action.reload = false;
     action.shoot = isShoot;
     action.swapWeapon = swapWeapon;
-    action.reload = false;
     action.plantMine = false;
 
     debug.draw(CustomData::Line(Vec2Float(unit.position.x ,unit.position.y),
