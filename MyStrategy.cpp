@@ -1,9 +1,12 @@
 #include "MyStrategy.hpp"
 #include <cmath>
 #include <iostream>
+#include <algorithm>
+#include <cstring>
 
 MyStrategy::MyStrategy() {
     PotentialField = {};
+    //SavedPath = {};
 }
 
 void MyStrategy::SetPotentialField(const Game &game){
@@ -39,12 +42,300 @@ bool intersect (Vec2Double a, Vec2Double b, Vec2Double c, Vec2Double d) {
            && area(c,d,a) * area(c,d,b) <= 0;
 }
 
+bool isPointInUnit(const Vec2Double point, const Unit &unit)
+{
+    if(
+            point.x >= unit.position.x-unit.size.x/2
+            &&
+            point.x <= unit.position.x+unit.size.x/2
+            &&
+            point.y >= unit.position.y
+            &&
+            point.y <= unit.position.y+unit.size.y
+            )
+        return true;
+    else return false;
+}
+
+bool isPointInUnitWithRadius(const Vec2Double point, const Unit &unit, double radius)
+{
+    if(
+            point.x >= unit.position.x-unit.size.x/2-radius
+            &&
+            point.x <= unit.position.x+unit.size.x/2+radius
+            &&
+            point.y >= unit.position.y-radius
+            &&
+            point.y <= unit.position.y+unit.size.y-radius
+            )
+        return true;
+    else return false;
+}
+
+
 struct Edge{
     Edge(Vec2Double p1, Vec2Double p2):start(p1), finish(p2){}
     Vec2Double start;
     Vec2Double finish;
 };
 
+// A*
+struct PathNode
+{
+    // Координаты точки на карте.
+    Vec2Double Position;
+    // Длина пути от старта (G).
+    double PathLengthFromStart=10000;
+    // Точка, из которой пришли в эту точку.
+    PathNode* CameFrom;
+    // Примерное расстояние до цели (H).
+    double HeuristicEstimatePathLength;
+
+    std::vector<Vec2Double> path = {};
+    // Ожидаемое полное расстояние до цели (F).
+    double EstimateFullPathLength() {
+        return this->PathLengthFromStart + this->HeuristicEstimatePathLength;
+    }
+};
+
+double GetHeuristicPathLength(Vec2Double from, Vec2Double to)
+{
+    return fabs(from.x - to.x) + fabs(from.y - to.y);
+}
+
+PathNode GetMinF(std::vector<PathNode> list)
+{
+    PathNode minElem;
+    double minVal = 10000;
+
+    for(PathNode &item : list)
+    {
+        double temp = item.EstimateFullPathLength();
+        if(temp<minVal)
+        {
+            minElem = item;
+            minVal = temp;
+        }
+    }
+    return minElem;
+}
+
+
+std::vector<Vec2Double> GetPathForNode(PathNode* pathNode)
+{
+    return pathNode->path;
+//    std::vector<Vec2Double> result = {};
+//    PathNode* currentNode = pathNode;
+//    while (currentNode != nullptr)
+//    {
+//        result.push_back(currentNode->Position);
+//        currentNode = currentNode->CameFrom;
+//    }
+//    std::reverse(std::begin(result), std::end(result));
+//    return result;
+}
+
+std::vector<PathNode> GetNeighbours(PathNode pathNode, Vec2Double goal,int sizeX, int sizeY, const Game &game, const Unit &currentUnit)
+{
+    std::vector<PathNode> result ={};
+
+// Соседними точками являются соседние по стороне клетки.
+    std::vector<Vec2Double> neighbourPoints = {};
+
+    int x = floor(pathNode.Position.x);
+    int y = floor(pathNode.Position.y);
+    neighbourPoints.push_back(Vec2Double(x + 1, y));
+    neighbourPoints.push_back(Vec2Double(x - 1, y));
+    neighbourPoints.push_back(Vec2Double(x, y + 1));
+    neighbourPoints.push_back(Vec2Double(x, y - 1));
+
+    neighbourPoints.push_back(Vec2Double(x + 1, y-1));
+    neighbourPoints.push_back(Vec2Double(x - 1, y-1));
+    neighbourPoints.push_back(Vec2Double(x+1, y + 1));
+    neighbourPoints.push_back(Vec2Double(x-1, y + 1));
+
+    for (Vec2Double point : neighbourPoints)
+    {
+        // Проверяем, что не вышли за границы карты.
+        if (point.x < 0 || point.x >= sizeX)
+            continue;
+        if (point.y < 0 || point.y >= sizeY)
+            continue;
+        // Проверяем, что по клетке можно ходить.
+        auto temp = game.level.tiles[point.x][point.y];
+        if ((temp == Tile::WALL))
+            continue;
+        bool isSomeUnitNear = false;
+        for(auto unit : game.units)
+        {
+            if(unit.id!=currentUnit.id)
+            {
+                if(isPointInUnit(point, currentUnit))
+                    isSomeUnitNear = true;
+            }
+        }
+        if(isSomeUnitNear)
+            continue;
+        // Заполняем данные для точки маршрута.
+        PathNode neighbourNode;
+        neighbourNode.Position.x = point.x;
+        neighbourNode.Position.y = point.y;
+        neighbourNode.path = {};
+        //neighbourNode.CameFrom = &pathNode;
+        for(auto item : pathNode.path)
+        {
+            neighbourNode.path.push_back(Vec2Double(item.x, item.y));
+        }
+        neighbourNode.path.push_back(Vec2Double(pathNode.Position.x, pathNode.Position.y));
+        neighbourNode.PathLengthFromStart = pathNode.PathLengthFromStart +1,
+        neighbourNode.HeuristicEstimatePathLength = GetHeuristicPathLength(point, goal);
+        result.push_back(neighbourNode);
+    }
+    return result;
+}
+
+std::vector<PathNode> removeItemFromList(PathNode node, std::vector<PathNode> list)
+{
+    int i=0;
+    for(auto item: list)
+    {
+        if(floor(item.Position.x) == floor(node.Position.x) && floor(item.Position.y) == floor(node.Position.y))
+        {
+            list.erase(list.begin()+i);
+            return list;
+        }
+        i++;
+    }
+    return list;
+}
+
+PathNode GetFirstByPosition(Vec2Double pos, std::vector<PathNode> list)
+{
+    for(PathNode item: list)
+    {
+        if(floor(item.Position.x) == floor(pos.x) && floor(item.Position.y) == floor(pos.y))
+        {
+            return item;
+        }
+    }
+    return PathNode();
+}
+
+bool isHasByPosition(Vec2Double pos, std::vector<PathNode> list)
+{
+    for(PathNode &item: list)
+    {
+        if(floor(item.Position.x) == floor(pos.x) && floor(item.Position.y) == floor(pos.y))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+int GetCountByPosition(Vec2Double pos, std::vector<PathNode> list)
+{
+    int i = 0;
+    for(auto item: list)
+    {
+        if(floor(item.Position.x) == floor(pos.x) && floor(item.Position.y) == floor(pos.y))
+        {
+            i++;
+        }
+    }
+    return i;
+}
+
+std::vector<Vec2Double> FindPath(Vec2Double from, Vec2Double to, const Game &game, const Unit &currentUnit)
+{
+    std::vector<PathNode> Idle = {};
+    std::vector<PathNode> visited = {};
+
+    from.x = floor(from.x);
+    from.y = floor(from.y);
+
+    to.x = floor(to.x);
+    to.y = floor(to.y);
+
+
+    int width = game.level.tiles.size();
+    int height = game.level.tiles[0].size();
+
+    // Шаг 2.
+    PathNode startNode = PathNode();
+    startNode.CameFrom = nullptr;
+    startNode.path = {};
+    startNode.Position = from;
+    startNode.PathLengthFromStart = 0,
+    startNode.HeuristicEstimatePathLength = GetHeuristicPathLength(from, to);
+
+    Idle.push_back(startNode);
+
+    while (Idle.size()> 0) {
+//        std::cerr << "Idle:" << Idle.size() << '\n';
+//        std::cerr << "visited:" << visited.size() << '\n';
+//        if (visited.size() == 140 && Idle.size() == 23) {
+//            int j = 0;
+//        }
+        // Шаг 3.
+
+
+        // Шаг 4.
+        if (Idle.size()!=0) {
+            PathNode currentNode =  GetMinF(Idle);
+//            if(Idle.size()!=0){
+//                PathNode minim =;
+//                currentNode = &minim;
+//                currentNode->path = minim.path;
+//            }
+            if (floor(currentNode.Position.x) == floor(to.x)  && floor(currentNode.Position.y) == floor( to.y))
+            {
+                return currentNode.path;// GetPathForNode(currentNode);
+            }
+            // Шаг 5.
+
+            Idle = removeItemFromList(currentNode, Idle);
+            visited.push_back(currentNode);
+            // Шаг 6.
+            auto neighs = GetNeighbours(currentNode, to, width, height, game, currentUnit);
+            for (auto neighbourNode : neighs) {
+                // Шаг 7.
+                if (GetCountByPosition(neighbourNode.Position, visited) > 0)
+                    continue;
+                PathNode* openNode = nullptr;
+                if(isHasByPosition(neighbourNode.Position, Idle))
+                {
+                    PathNode temp = GetFirstByPosition(neighbourNode.Position, Idle);
+                    openNode = &temp;
+                }
+                // Шаг 8.
+                if (openNode == nullptr)
+                    Idle.push_back(neighbourNode);
+                else if (openNode->PathLengthFromStart > neighbourNode.PathLengthFromStart) {
+                    // Шаг 9.
+
+                    openNode->path = {};
+                    //neighbourNode.CameFrom = &pathNode;
+                    for(auto item : currentNode.path)
+                    {
+                        openNode->path.push_back(Vec2Double(item.x, item.y));
+                    }
+                    openNode->path.push_back(Vec2Double(currentNode.Position.x, currentNode.Position.y));
+
+                   // std::memcpy(openNode->CameFrom, currentNode, sizeof currentNode);
+                    openNode->PathLengthFromStart = neighbourNode.PathLengthFromStart;
+                    //Idle.push_back(*openNode);
+                }
+            }
+        }
+    }
+    // Шаг 10.
+    return {};
+
+}
+
+
+// A*
 
 bool isPointInTriangle(Vec2Double p, Vec2Double p1, Vec2Double p2,Vec2Double p3){
     std::vector<Edge> stackEnges = {};
@@ -89,6 +380,7 @@ Vec2Double TurnAndResize(Vec2Double from, Vec2Double to, double lenght, double a
 
     return to;
 }
+
 
 
 bool isIntersectUnit(const Vec2Double unitPos, const Vec2Double aim, const Unit unit, double r)
@@ -416,10 +708,7 @@ void array_destroyer(double **ary, unsigned int dim1) {
 UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
                                  Debug &debug) {
 
-    if(game.currentTick==315)
-    {
-        int stop = 1;
-    }
+
     const Unit *nearestEnemy = nullptr;
     const LootBox *nearestWeapon = nullptr;
     bool swapWeapon = false;
@@ -448,6 +737,18 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
     }
 
 
+    if(game.currentTick%(10*unit.id)==0)
+    {
+        for(auto unitItem : game.units)
+        {
+            if(unitItem.playerId == unit.playerId)
+            {
+                SavedPath[unitItem.id]=FindPath(unitItem.position, (unit.weapon==nullptr)? nearestWeapon->position: nearestEnemy->position, game, unit);
+
+            }
+        }
+    }
+
     //SetPotentialField(game);
     int width = game.level.tiles.size();
     int height = game.level.tiles[0].size();
@@ -467,7 +768,7 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
 //    for (int i=0;i<width;i++) {
 //        PotentialFields.push_back(std::vector<double>(height, 0));
 //    }
-    // std::cerr<<game.currentTick<<'\n';
+     //std::cerr<<game.currentTick<<'\n';
 
     for (const Unit &other : game.units) {
         if (other.playerId != unit.playerId) {
@@ -657,28 +958,40 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
         {
             targetPos =   GetMinPotentialByRadius(3, a, width,height, unit.position);
         }else {
-            if (sqrt(distanceSqr(unit.position, nearestEnemy->position)) > 10) {
-                double l = sqrt(
-                        (nearestEnemy->position.x - unit.position.x) * (nearestEnemy->position.x - unit.position.x) +
-                        (nearestEnemy->position.y - unit.position.y) * (nearestEnemy->position.y - unit.position.y));
+            //if (sqrt(distanceSqr(unit.position, nearestEnemy->position)) > 7) {
+                if(SavedPath.count(unit.id)!=0 && SavedPath[unit.id].size()>1)
+                {
+                    while(isPointInUnitWithRadius(SavedPath[unit.id][0], unit, 2) && SavedPath[unit.id].size()>1 )
+                    {
+                        SavedPath[unit.id].erase(SavedPath[unit.id].begin());
+                    }
+                    targetPos = SavedPath[unit.id][0];
+                }
+                else {
+                    double l = sqrt(
+                            (nearestEnemy->position.x - unit.position.x) *
+                            (nearestEnemy->position.x - unit.position.x) +
+                            (nearestEnemy->position.y - unit.position.y) *
+                            (nearestEnemy->position.y - unit.position.y));
 
-                targetPos = nearestEnemy->position;
-                double Vx = targetPos.x - unit.position.x;
-                double Vy = targetPos.y - unit.position.y;
-                targetPos.x = unit.position.x + Vx * ((l - 10) / l);
-                targetPos.y = unit.position.y + Vy * ((l - 10) / l);
-            } else {
-                //targetPos =   GetMinPotentialByRadius(3, a, width,height, unit.position);
-                targetPos = nearestEnemy->position;
-                double angle = 3.14;
-                double Vx = targetPos.x - unit.position.x;
-                double Vy = targetPos.y - unit.position.y;
-                double x = Vx * cos(angle) - Vy * sin(angle);
-                double y = Vy * cos(angle) + Vx * sin(angle);
-                targetPos.x = unit.position.x + x;
-                targetPos.y = unit.position.y + y;
-
-            }
+                    targetPos = nearestEnemy->position;
+                    double Vx = targetPos.x - unit.position.x;
+                    double Vy = targetPos.y - unit.position.y;
+                    targetPos.x = unit.position.x + Vx * ((l - 7) / l);
+                    targetPos.y = unit.position.y + Vy * ((l - 7) / l);
+                }
+//            } else {
+//                //targetPos =   GetMinPotentialByRadius(3, a, width,height, unit.position);
+//                targetPos = nearestEnemy->position;
+//                double angle = 3.14;
+//                double Vx = targetPos.x - unit.position.x;
+//                double Vy = targetPos.y - unit.position.y;
+//                double x = Vx * cos(angle) - Vy * sin(angle);
+//                double y = Vy * cos(angle) + Vx * sin(angle);
+//                targetPos.x = unit.position.x + x;
+//                targetPos.y = unit.position.y + y;
+//
+//            }
         }
 
     }
@@ -724,6 +1037,16 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
     UnitAction action;
 
 
+    Vec2Double prev = unit.position;
+    for(auto unitItem : game.units) {
+        if(unitItem.playerId == unit.playerId)
+        for (auto item :SavedPath[unitItem.id]) {
+            debug.draw(CustomData::Line(Vec2Float(prev.x, prev.y),
+                                        Vec2Float(item.x, item.y),
+                                        0.1, ColorFloat(50, 50, 50, 50)));
+            prev = item;
+        }
+    }
 
     //if(unit.weapon.get() == nullptr || isObstacleDetected || unit.health<game.properties.unitMaxHealth)
     action.velocity = (targetPos.x - unit.position.x)*game.properties.unitMaxHorizontalSpeed;
@@ -757,7 +1080,7 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
     action.jumpDown = !action.jump;
 
     action.aim = aim;
-    action.reload = isReloadMyGun;
+    action.reload = false;//isReloadMyGun;
 
 
     action.shoot = isShoot;
@@ -765,16 +1088,18 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
     action.plantMine = false;
 
 
-    debug.draw(CustomData::Line(Vec2Float(unit.position.x ,unit.position.y),
-                                Vec2Float(aim.x+unit.position.x, aim.y+unit.position.y),
-                                0.1,ColorFloat(50,50,50,50)));
 
 
-
-
-    debug.draw(CustomData::Line(Vec2Float(unit.position.x ,unit.position.y),
-                                Vec2Float(targetPos.x, targetPos.y + (game.properties.unitSize.y/2)),
-                                0.1,ColorFloat(100,0,0,50)));
+//    debug.draw(CustomData::Line(Vec2Float(unit.position.x ,unit.position.y),
+//                                Vec2Float(aim.x+unit.position.x, aim.y+unit.position.y),
+//                                0.1,ColorFloat(50,50,50,50)));
+//
+//
+//
+//
+//    debug.draw(CustomData::Line(Vec2Float(unit.position.x ,unit.position.y),
+//                                Vec2Float(targetPos.x, targetPos.y + (game.properties.unitSize.y/2)),
+//                                0.1,ColorFloat(100,0,0,50)));
     std::string tsxt = isMyUnitOnAimLine? "true":"false";
     std::string isMeOnFireS = isMeOnFire? "true":"false";
     debug.draw(CustomData::Log(

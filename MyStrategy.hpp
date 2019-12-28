@@ -6,6 +6,8 @@
 #include "model/Game.hpp"
 #include "model/Unit.hpp"
 #include "model/UnitAction.hpp"
+#include <map>
+
 
 class MyStrategy {
 public:
@@ -13,6 +15,8 @@ public:
   UnitAction getAction(const Unit &unit, const Game &game, Debug &debug);
   void SetPotentialField(const Game &game);
   std::vector<std::vector<double>> PotentialField;
+  std::map<int,std::vector<Vec2Double>> SavedPath;
+ // std::vector<Vec2Double> SavedPath;
 };
 
 #endif
