@@ -3,6 +3,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cstring>
+#include <list>
 
 MyStrategy::MyStrategy() {
     PotentialField = {};
@@ -44,32 +45,24 @@ bool intersect (Vec2Double a, Vec2Double b, Vec2Double c, Vec2Double d) {
 
 bool isPointInUnit(const Vec2Double point, const Unit &unit)
 {
-    if(
-            point.x >= unit.position.x-unit.size.x/2
-            &&
-            point.x <= unit.position.x+unit.size.x/2
-            &&
-            point.y >= unit.position.y
-            &&
-            point.y <= unit.position.y+unit.size.y
-            )
-        return true;
-    else return false;
+    return point.x >= unit.position.x - unit.size.x / 2
+           &&
+           point.x <= unit.position.x + unit.size.x / 2
+           &&
+           point.y >= unit.position.y
+           &&
+           point.y <= unit.position.y + unit.size.y;
 }
 
 bool isPointInUnitWithRadius(const Vec2Double point, const Unit &unit, double radius)
 {
-    if(
-            point.x >= unit.position.x-unit.size.x/2-radius
-            &&
-            point.x <= unit.position.x+unit.size.x/2+radius
-            &&
-            point.y >= unit.position.y-radius
-            &&
-            point.y <= unit.position.y+unit.size.y-radius
-            )
-        return true;
-    else return false;
+    return point.x >= unit.position.x - unit.size.x / 2 - radius
+           &&
+           point.x <= unit.position.x + unit.size.x / 2 + radius
+           &&
+           point.y >= unit.position.y - radius
+           &&
+           point.y <= unit.position.y + unit.size.y - radius;
 }
 
 
@@ -96,6 +89,20 @@ struct PathNode
     double EstimateFullPathLength() {
         return this->PathLengthFromStart + this->HeuristicEstimatePathLength;
     }
+
+    const double EstimateFullPathLengthConst() const {
+        return this->PathLengthFromStart + this->HeuristicEstimatePathLength;
+    }
+
+    bool operator < (const PathNode &node) const
+    {
+        return EstimateFullPathLengthConst()<node.EstimateFullPathLengthConst();
+    }
+
+    bool operator == (const PathNode &node)
+    {
+        return floor(Position.x) == floor(node.Position.x) && floor(Position.y) == floor(node.Position.y);
+    }
 };
 
 double GetHeuristicPathLength(Vec2Double from, Vec2Double to)
@@ -103,7 +110,7 @@ double GetHeuristicPathLength(Vec2Double from, Vec2Double to)
     return fabs(from.x - to.x) + fabs(from.y - to.y);
 }
 
-PathNode GetMinF(std::vector<PathNode> list)
+PathNode GetMinF(std::list<PathNode> list)
 {
     PathNode minElem;
     double minVal = 10000;
@@ -121,11 +128,11 @@ PathNode GetMinF(std::vector<PathNode> list)
 }
 
 
-std::vector<Vec2Double> GetPathForNode(PathNode* pathNode)
+std::vector<Vec2Double> GetPathForNode(PathNode pathNode)
 {
-    return pathNode->path;
+    return pathNode.path;
 //    std::vector<Vec2Double> result = {};
-//    PathNode* currentNode = pathNode;
+//    PathNode* currentNode = &pathNode;
 //    while (currentNode != nullptr)
 //    {
 //        result.push_back(currentNode->Position);
@@ -180,12 +187,12 @@ std::vector<PathNode> GetNeighbours(PathNode pathNode, Vec2Double goal,int sizeX
         PathNode neighbourNode;
         neighbourNode.Position.x = point.x;
         neighbourNode.Position.y = point.y;
-        neighbourNode.path = {};
+        neighbourNode.path = pathNode.path;
         //neighbourNode.CameFrom = &pathNode;
-        for(auto item : pathNode.path)
-        {
-            neighbourNode.path.push_back(Vec2Double(item.x, item.y));
-        }
+//        for(auto item : pathNode.path)
+//        {
+//            neighbourNode.path.push_back(Vec2Double(item.x, item.y));
+//        }
         neighbourNode.path.push_back(Vec2Double(pathNode.Position.x, pathNode.Position.y));
         neighbourNode.PathLengthFromStart = pathNode.PathLengthFromStart +1,
         neighbourNode.HeuristicEstimatePathLength = GetHeuristicPathLength(point, goal);
@@ -194,62 +201,15 @@ std::vector<PathNode> GetNeighbours(PathNode pathNode, Vec2Double goal,int sizeX
     return result;
 }
 
-std::vector<PathNode> removeItemFromList(PathNode node, std::vector<PathNode> list)
-{
-    int i=0;
-    for(auto item: list)
-    {
-        if(floor(item.Position.x) == floor(node.Position.x) && floor(item.Position.y) == floor(node.Position.y))
-        {
-            list.erase(list.begin()+i);
-            return list;
-        }
-        i++;
-    }
-    return list;
-}
-
-PathNode GetFirstByPosition(Vec2Double pos, std::vector<PathNode> list)
-{
-    for(PathNode item: list)
-    {
-        if(floor(item.Position.x) == floor(pos.x) && floor(item.Position.y) == floor(pos.y))
-        {
-            return item;
-        }
-    }
-    return PathNode();
-}
-
-bool isHasByPosition(Vec2Double pos, std::vector<PathNode> list)
-{
-    for(PathNode &item: list)
-    {
-        if(floor(item.Position.x) == floor(pos.x) && floor(item.Position.y) == floor(pos.y))
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-int GetCountByPosition(Vec2Double pos, std::vector<PathNode> list)
-{
-    int i = 0;
-    for(auto item: list)
-    {
-        if(floor(item.Position.x) == floor(pos.x) && floor(item.Position.y) == floor(pos.y))
-        {
-            i++;
-        }
-    }
-    return i;
+bool isPointInArena(Vec2Double pos, const Game &game){
+    return (pos.x>=0 && pos.x<=game.level.tiles.size() &&
+    pos.y>=0 && pos.y<=game.level.tiles[0].size());
 }
 
 std::vector<Vec2Double> FindPath(Vec2Double from, Vec2Double to, const Game &game, const Unit &currentUnit)
 {
-    std::vector<PathNode> Idle = {};
-    std::vector<PathNode> visited = {};
+    std::list<PathNode> Idle = {};
+    std::list<PathNode> visited = {};
 
     from.x = floor(from.x);
     from.y = floor(from.y);
@@ -272,62 +232,51 @@ std::vector<Vec2Double> FindPath(Vec2Double from, Vec2Double to, const Game &gam
     Idle.push_back(startNode);
 
     while (Idle.size()> 0) {
-//        std::cerr << "Idle:" << Idle.size() << '\n';
-//        std::cerr << "visited:" << visited.size() << '\n';
-//        if (visited.size() == 140 && Idle.size() == 23) {
-//            int j = 0;
-//        }
-        // Шаг 3.
 
+//        std::cerr<<"Idle size: "<< Idle.size()<<'\n';
+//        std::cerr<<"visited size: "<< visited.size()<<'\n';
 
-        // Шаг 4.
-        if (Idle.size()!=0) {
-            PathNode currentNode =  GetMinF(Idle);
-//            if(Idle.size()!=0){
-//                PathNode minim =;
-//                currentNode = &minim;
-//                currentNode->path = minim.path;
-//            }
-            if (floor(currentNode.Position.x) == floor(to.x)  && floor(currentNode.Position.y) == floor( to.y))
-            {
-                return currentNode.path;// GetPathForNode(currentNode);
-            }
-            // Шаг 5.
+        PathNode currentNode = GetMinF(Idle);
+        if (floor(currentNode.Position.x) == floor(to.x) && floor(currentNode.Position.y) == floor(to.y)) {
+            return GetPathForNode(currentNode);
+        }
+        // Шаг 5.
 
-            Idle = removeItemFromList(currentNode, Idle);
-            visited.push_back(currentNode);
-            // Шаг 6.
-            auto neighs = GetNeighbours(currentNode, to, width, height, game, currentUnit);
-            for (auto neighbourNode : neighs) {
-                // Шаг 7.
-                if (GetCountByPosition(neighbourNode.Position, visited) > 0)
-                    continue;
-                PathNode* openNode = nullptr;
-                if(isHasByPosition(neighbourNode.Position, Idle))
+        //Idle = removeItemFromList(currentNode, Idle);
+        Idle.pop_front();
+        visited.push_back(currentNode);
+
+        // Шаг 6.
+        auto neighs = GetNeighbours(currentNode, to, width, height, game, currentUnit);
+        for (auto neighbourNode : neighs) {
+            // Шаг 7.
+//            if (GetCountByPosition(neighbourNode.Position, visited, game) > 0)
+//                continue;
+            auto visitedNodeIter = std::find(visited.begin(), visited.end(), neighbourNode);
+            if(visitedNodeIter!=visited.end())
+                continue;
+           auto idleNodeIter = std::find(Idle.begin(), Idle.end(), neighbourNode);
+            // Шаг 8.
+            if (idleNodeIter == Idle.end())
+                Idle.push_back(neighbourNode);
+            else if (idleNodeIter->PathLengthFromStart > neighbourNode.PathLengthFromStart) {
+                // Шаг 9.
+
+                idleNodeIter->CameFrom = &neighbourNode;
+                idleNodeIter->path = {};
+                //neighbourNode.CameFrom = &pathNode;
+                for(auto item : neighbourNode.path)
                 {
-                    PathNode temp = GetFirstByPosition(neighbourNode.Position, Idle);
-                    openNode = &temp;
+                    idleNodeIter->path.push_back(Vec2Double(item.x, item.y));
                 }
-                // Шаг 8.
-                if (openNode == nullptr)
-                    Idle.push_back(neighbourNode);
-                else if (openNode->PathLengthFromStart > neighbourNode.PathLengthFromStart) {
-                    // Шаг 9.
+                idleNodeIter->path.push_back(Vec2Double(neighbourNode.Position.x, neighbourNode.Position.y));
+                //neighbourNode.CameFrom = &pathNode;
 
-                    openNode->path = {};
-                    //neighbourNode.CameFrom = &pathNode;
-                    for(auto item : currentNode.path)
-                    {
-                        openNode->path.push_back(Vec2Double(item.x, item.y));
-                    }
-                    openNode->path.push_back(Vec2Double(currentNode.Position.x, currentNode.Position.y));
-
-                   // std::memcpy(openNode->CameFrom, currentNode, sizeof currentNode);
-                    openNode->PathLengthFromStart = neighbourNode.PathLengthFromStart;
-                    //Idle.push_back(*openNode);
-                }
+                idleNodeIter->PathLengthFromStart = neighbourNode.PathLengthFromStart;
+                //Idle.push_back(*openNode);
             }
         }
+
     }
     // Шаг 10.
     return {};
@@ -735,7 +684,11 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
             }
         }
     }
-
+//    if(game.currentTick==80)
+//    {
+//        int y = 0;
+//    }
+//    std::cerr<<game.currentTick<<'\n';
 
     if(game.currentTick%(10*unit.id)==0)
     {
@@ -768,7 +721,7 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
 //    for (int i=0;i<width;i++) {
 //        PotentialFields.push_back(std::vector<double>(height, 0));
 //    }
-     //std::cerr<<game.currentTick<<'\n';
+
 
     for (const Unit &other : game.units) {
         if (other.playerId != unit.playerId) {
@@ -959,39 +912,27 @@ UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
             targetPos =   GetMinPotentialByRadius(3, a, width,height, unit.position);
         }else {
             //if (sqrt(distanceSqr(unit.position, nearestEnemy->position)) > 7) {
-                if(SavedPath.count(unit.id)!=0 && SavedPath[unit.id].size()>1)
-                {
-                    while(isPointInUnitWithRadius(SavedPath[unit.id][0], unit, 2) && SavedPath[unit.id].size()>1 )
-                    {
-                        SavedPath[unit.id].erase(SavedPath[unit.id].begin());
-                    }
-                    targetPos = SavedPath[unit.id][0];
-                }
-                else {
-                    double l = sqrt(
-                            (nearestEnemy->position.x - unit.position.x) *
-                            (nearestEnemy->position.x - unit.position.x) +
-                            (nearestEnemy->position.y - unit.position.y) *
-                            (nearestEnemy->position.y - unit.position.y));
+            while (SavedPath.count(unit.id) != 0 && SavedPath[unit.id].size() > 0 && isPointInUnitWithRadius(SavedPath[unit.id][0], unit, 2) &&
+                   SavedPath[unit.id].size() > 0) {
+                SavedPath[unit.id].erase(SavedPath[unit.id].begin());
+            }
+            if (SavedPath.count(unit.id) != 0 && SavedPath[unit.id].size() > 1) {
+                targetPos = SavedPath[unit.id][0];
+            }
 
-                    targetPos = nearestEnemy->position;
-                    double Vx = targetPos.x - unit.position.x;
-                    double Vy = targetPos.y - unit.position.y;
-                    targetPos.x = unit.position.x + Vx * ((l - 7) / l);
-                    targetPos.y = unit.position.y + Vy * ((l - 7) / l);
-                }
-//            } else {
-//                //targetPos =   GetMinPotentialByRadius(3, a, width,height, unit.position);
-//                targetPos = nearestEnemy->position;
-//                double angle = 3.14;
-//                double Vx = targetPos.x - unit.position.x;
-//                double Vy = targetPos.y - unit.position.y;
-//                double x = Vx * cos(angle) - Vy * sin(angle);
-//                double y = Vy * cos(angle) + Vx * sin(angle);
-//                targetPos.x = unit.position.x + x;
-//                targetPos.y = unit.position.y + y;
-//
-//            }
+            else {
+                double l = sqrt(
+                        (nearestEnemy->position.x - unit.position.x) *
+                        (nearestEnemy->position.x - unit.position.x) +
+                        (nearestEnemy->position.y - unit.position.y) *
+                        (nearestEnemy->position.y - unit.position.y));
+
+                targetPos = nearestEnemy->position;
+                double Vx = targetPos.x - unit.position.x;
+                double Vy = targetPos.y - unit.position.y;
+                targetPos.x = unit.position.x + Vx * ((l - 7) / l);
+                targetPos.y = unit.position.y + Vy * ((l - 7) / l);
+            }
         }
 
     }
