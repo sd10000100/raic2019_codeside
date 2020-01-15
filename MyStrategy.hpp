@@ -7,7 +7,9 @@
 #include "model/Unit.hpp"
 #include "model/UnitAction.hpp"
 #include <map>
-
+//#include "helpers/Geometry.h"
+#include "helpers/AStar.h"
+#include "helpers/InfluenceMapBuilder.h"
 
 class MyStrategy {
 public:
@@ -16,7 +18,6 @@ public:
   void SetPotentialField(const Game &game);
   std::vector<std::vector<double>> PotentialField;
   std::map<int,std::vector<Vec2Double>> SavedPath;
- // std::vector<Vec2Double> SavedPath;
 };
 
 #endif
