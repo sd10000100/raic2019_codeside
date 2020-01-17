@@ -8,8 +8,9 @@
 #include "model/UnitAction.hpp"
 #include <map>
 //#include "helpers/Geometry.h"
-#include "helpers/AStar.h"
 #include "helpers/InfluenceMapBuilder.h"
+#include "helpers/AStar.h"
+
 
 class MyStrategy {
 public:

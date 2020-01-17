@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cmath>
 #include <cstring>
+#include <cassert>
 
 MyStrategy::MyStrategy() {
     //PotentialField = {};
@@ -13,7 +14,6 @@ MyStrategy::MyStrategy() {
 //
 //    for (int i=0;i<width;i++) {
 //        PotentialField.push_back(std::vector<double>(height, 0));
-//
 //    }
 //};
 
@@ -111,6 +111,15 @@ bool isObstacleForAim(const Vec2Double unitPos, const Vec2Double aim, const Game
 
 UnitAction MyStrategy::getAction(const Unit &unit, const Game &game,
                                  Debug &debug) {
+
+//    auto isTrue1 = isPointInPolygon(Vec2Double(1,1), Vec2Double(0,0),Vec2Double(3,0),Vec2Double(0,3) );
+//    auto isFalse1 = isPointInPolygon(Vec2Double(2,2), Vec2Double(0,0),Vec2Double(3,0),Vec2Double(0,3) );
+//    auto isTrue2 = isPointInPolygon(Vec2Double(2,2), Vec2Double(0,0),Vec2Double(3,0),Vec2Double(0,3),Vec2Double(3,3) );
+//    auto isFalse2 = isPointInPolygon(Vec2Double(4,4), Vec2Double(0,0),Vec2Double(3,0),Vec2Double(0,3),Vec2Double(3,3) );
+//    assert(isTrue1==true);
+//    assert(isTrue2==true);
+//    assert(isFalse1==false);
+//    assert(isFalse2==false);
 
     AStar aStarPathfinder = AStar();
     const Unit *nearestEnemy = nullptr;

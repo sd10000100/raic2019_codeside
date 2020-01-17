@@ -7,22 +7,7 @@
 
 #include <cmath>
 #include <vector>
-#include "../model/Vec2Double.hpp"
-
-struct Edge{
-    Edge(Vec2Double p1, Vec2Double p2):start(p1), finish(p2){}
-    Vec2Double start;
-    Vec2Double finish;
-};
-
-double distanceSqr(Vec2Double a, Vec2Double b);
-
-double area (Vec2Double a, Vec2Double b, Vec2Double c);
-bool intersect_1 (double a, double b, double c, double d);
-
-bool intersect (Vec2Double a, Vec2Double b, Vec2Double c, Vec2Double d);
-
-bool isPointInTriangle(Vec2Double p, Vec2Double p1, Vec2Double p2,Vec2Double p3);
+#include "Geometry.hpp"
 
 double **array_generator(unsigned int dim1, unsigned int dim2);
 
